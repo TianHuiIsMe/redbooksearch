@@ -22,11 +22,12 @@ class PlaywrightBrowserController:
         self.base_url = "https://www.xiaohongshu.com"
         self.search_url = "https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes"
 
-        # 人类行为模拟配置
-        self.min_delay = config.get("min_delay", 2)  # 最小延迟（秒）
-        self.max_delay = config.get("max_delay", 5)  # 最大延迟（秒）
+        # 人类行为模拟配置 - 优化速度
+        self.min_delay = config.get("min_delay", 1)  # 从2改为1秒
+        self.max_delay = config.get("max_delay", 2)  # 从5改为2秒
         self.max_scroll_attempts = config.get("max_scroll_attempts", 10)
         self.max_pages = config.get("max_pages", 5)  # 最多翻页数
+        self.fast_mode = config.get("fast_mode", True)  # 快速模式开关
 
         # 用户代理列表（模拟不同设备）
         self.user_agents = [
@@ -79,9 +80,15 @@ class PlaywrightBrowserController:
             return False
 
     def _random_delay(self, min_delay: Optional[float] = None, max_delay: Optional[float] = None):
-        """随机延迟 - 模拟人类思考时间"""
+        """随机延迟 - 模拟人类思考时间（支持快速模式）"""
         min_d = min_delay or self.min_delay
         max_d = max_delay or self.max_delay
+
+        # 快速模式：减少延时
+        if self.fast_mode:
+            min_d = min_d * 0.5
+            max_d = max_d * 0.5
+
         delay = random.uniform(min_d, max_d)
         time.sleep(delay)
 
@@ -128,16 +135,24 @@ class PlaywrightBrowserController:
                 print(f"[{datetime.now().isoformat()}] [WARN] URL已访问过: {search_url}")
                 return {"status": "already_visited", "url": search_url}
 
-            # 访问搜索页面
+            # 访问搜索页面 - 优化加载策略
             print(f"[{datetime.now().isoformat()}] [INFO] 访问搜索页面: {search_url}")
-            self.page.goto(search_url, timeout=30000, wait_until='domcontentloaded')
+            # 使用较短超时，快速失败
+            self.page.goto(search_url, timeout=20000, wait_until='domcontentloaded')
 
-            # 模拟人类行为：等待页面加载
-            self._random_delay(3, 6)
+            # 快速模式：减少等待时间
+            if self.fast_mode:
+                self._random_delay(1, 2)
+            else:
+                self._random_delay(3, 6)
 
-            # 模拟滚动浏览搜索结果
-            self._simulate_human_scroll(500)
-            self._random_delay(2, 4)
+            # 模拟滚动浏览搜索结果 - 快速模式减少滚动
+            if self.fast_mode:
+                self._simulate_human_scroll(300)
+                self._random_delay(0.5, 1)
+            else:
+                self._simulate_human_scroll(500)
+                self._random_delay(2, 4)
 
             # 记录已访问
             if hasattr(memory, 'add_visited_url'):
@@ -277,47 +292,23 @@ class PlaywrightBrowserController:
             return {"status": "error", "error": str(e)}
 
     def _collect_note_detail(self) -> Dict:
-        """采集笔记详情页内容"""
+        """采集笔记详情页内容 - 优化速度"""
         note_data = {
             "url": self.page.url,
             "collected_at": datetime.now().isoformat()
         }
 
         try:
-            # 等待页面加载
-            self._random_delay(2, 4)
+            # 快速模式：减少等待时间
+            if self.fast_mode:
+                self._random_delay(1, 2)
+            else:
+                self._random_delay(2, 4)
 
-            # 提取标题
-            title_elem = self.page.query_selector('h1.title, .note-title, [class*="title"]')
-            note_data["title"] = title_elem.inner_text() if title_elem else ""
+            # 使用更高效的选择器 - 一次性提取所有数据
+            note_data = {**note_data, **self._extract_note_data_fast()}
 
-            # 提取作者
-            author_elem = self.page.query_selector('.author-name, [class*="author"]')
-            note_data["author"] = author_elem.inner_text() if author_elem else ""
-
-            # 提取正文内容
-            content_elem = self.page.query_selector('.note-content, [class*="content"], .desc')
-            note_data["content"] = content_elem.inner_text() if content_elem else ""
-
-            # 提取标签
-            tag_elems = self.page.query_selector_all('.tag, [class*="tag"]')
-            note_data["tags"] = [tag.inner_text() for tag in tag_elems]
-
-            # 提取互动数据
-            like_elem = self.page.query_selector('.like-count, [class*="like"]')
-            note_data["likes"] = like_elem.inner_text() if like_elem else "0"
-
-            comment_elem = self.page.query_selector('.comment-count, [class*="comment"]')
-            note_data["comments"] = comment_elem.inner_text() if comment_elem else "0"
-
-            collect_elem = self.page.query_selector('.collect-count, [class*="collect"]')
-            note_data["collects"] = collect_elem.inner_text() if collect_elem else "0"
-
-            # 提取发布时间
-            time_elem = self.page.query_selector('.publish-time, [class*="time"]')
-            note_data["publish_time"] = time_elem.inner_text() if time_elem else ""
-
-            print(f"[{datetime.now().isoformat()}] [INFO] 采集笔记成功: {note_data.get('title', '未知标题')}")
+            print(f"[{datetime.now().isoformat()}] [INFO] 采集笔记成功: {note_data.get('title', '未知标题')[:30]}...")
 
             return {
                 "status": "success",
@@ -328,6 +319,49 @@ class PlaywrightBrowserController:
         except Exception as e:
             print(f"[{datetime.now().isoformat()}] [ERROR] 采集笔记详情失败: {str(e)}")
             return {"status": "error", "error": str(e)}
+
+    def _extract_note_data_fast(self) -> Dict:
+        """快速提取笔记数据 - 使用JavaScript一次性提取"""
+        # 使用JavaScript一次性提取所有数据，比逐个查询快
+        js_script = """
+        () => {
+            const data = {};
+            
+            // 提取标题
+            const titleElem = document.querySelector('h1, .title, [class*="title"]');
+            data.title = titleElem ? titleElem.innerText : '';
+            
+            // 提取作者
+            const authorElem = document.querySelector('.author, [class*="author"]');
+            data.author = authorElem ? authorElem.innerText : '';
+            
+            // 提取内容
+            const contentElem = document.querySelector('.content, [class*="content"], .desc, article');
+            data.content = contentElem ? contentElem.innerText : '';
+            
+            // 提取标签
+            const tagElems = document.querySelectorAll('.tag, [class*="tag"]');
+            data.tags = Array.from(tagElems).map(t => t.innerText);
+            
+            // 提取互动数据
+            const likeElem = document.querySelector('.like, [class*="like"]');
+            data.likes = likeElem ? likeElem.innerText : '0';
+            
+            const commentElem = document.querySelector('.comment, [class*="comment"]');
+            data.comments = commentElem ? commentElem.innerText : '0';
+            
+            const collectElem = document.querySelector('.collect, [class*="collect"]');
+            data.collects = collectElem ? collectElem.innerText : '0';
+            
+            // 提取发布时间
+            const timeElem = document.querySelector('.time, [class*="time"], time');
+            data.publish_time = timeElem ? timeElem.innerText : '';
+            
+            return data;
+        }
+        """
+
+        return self.page.evaluate(js_script)
 
     def _collect_search_page(self) -> Dict:
         """采集搜索结果页面"""
