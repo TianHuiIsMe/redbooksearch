@@ -334,6 +334,11 @@ class XiaohongshuAIAgent:
         self.task_queue: List[Task] = []
         self.current_task: Optional[Task] = None
         self.logs = []
+        self.log_callback = None  # 日志回调函数，用于实时推送日志
+
+    def set_log_callback(self, callback):
+        """设置日志回调函数"""
+        self.log_callback = callback
 
     def initialize(self):
         """初始化Agent"""
@@ -449,6 +454,13 @@ class XiaohongshuAIAgent:
 
         # 同时输出到控制台
         print(f"[{log_entry['timestamp']}] [{level.upper()}] [{self.state.value}] {message}")
+
+        # 调用日志回调函数（用于实时推送）
+        if self.log_callback:
+            try:
+                self.log_callback(log_entry)
+            except Exception as e:
+                print(f"[WARNING] 日志回调执行失败: {str(e)}")
 
     def cleanup(self):
         """清理资源"""
