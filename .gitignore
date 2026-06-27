@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境（WorkBuddy管理的）
+/c/Users/tianhui/.workbuddy/binaries/
+
+#  Playwright浏览器缓存
+.playwright/
+
+# 配置文件（包含API密钥）
+config/config.json
+*.env
+
+# 数据文件
+data/outputs/
+data/raw/
+data/processed/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.log
+*.tmp
+*.bak
+
+# 测试覆盖率
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+.dockerignore
