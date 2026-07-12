@@ -187,6 +187,7 @@ def get_plans():
     return jsonify({
         "success": True,
         "plans": plans,
+        "test_mode": membership_mgr.config.get("test_mode", False),
         "afdian_profile": membership_mgr.afdian.profile_url
     })
 
@@ -232,6 +233,43 @@ def get_purchase_url():
         "url": url,
         "session_id": session_id
     })
+
+
+@app.route("/api/membership/create-order", methods=["POST"])
+def create_order():
+    """创建爱发电订单会话（生成带 custom_order_id 的支付链接，用于自动激活）"""
+    session_id = get_session_id()
+    data = request.get_json(silent=True) or {}
+    plan_id = data.get("plan_id", "")
+    if not plan_id:
+        return jsonify({"success": False, "message": "请选择会员方案"}), 400
+
+    result = membership_mgr.create_order_session(session_id, plan_id)
+    resp = make_response(jsonify(result))
+    set_session_cookie(resp, session_id)
+    return resp
+
+
+@app.route("/api/membership/poll", methods=["GET"])
+def poll_payment():
+    """轮询支付结果（全自动激活，无需手动填订单号）"""
+    session_id = get_session_id()
+    result = membership_mgr.poll_payment(session_id)
+    resp = make_response(jsonify(result))
+    set_session_cookie(resp, session_id)
+    return resp
+
+
+@app.route("/api/membership/simulate", methods=["POST"])
+def simulate_payment():
+    """测试模式：模拟爱发电支付成功（仅供本地自测，生产关闭 test_mode 后返回 403）"""
+    if not membership_mgr.config.get("test_mode", False):
+        return jsonify({"status": "error", "message": "测试模式未开启"}), 403
+    session_id = get_session_id()
+    result = membership_mgr.simulate_payment(session_id)
+    resp = make_response(jsonify(result))
+    set_session_cookie(resp, session_id)
+    return resp
 
 
 @app.route("/api/membership/check-permission")
@@ -386,4 +424,4 @@ if __name__ == "__main__":
     print("  启动成功！访问: localhost:5000")
     print("=" * 60)
 
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True, use_reloader=False, host="0.0.0.0", port=5000)
