@@ -184,6 +184,19 @@
         /* 爱发电嵌入 */
         .afdian-embed { margin-top: 20px; text-align: center; }
         .afdian-embed iframe { border: none; border-radius: 8px; max-width: 100%; }
+        .afdian-title { color: #333; font-size: 16px; margin-bottom: 14px; }
+        .afdian-tip { color: #999; font-size: 13px; margin-top: 10px; line-height: 1.6; }
+        .afdian-tip strong { color: #667eea; }
+
+        /* 支付等待弹窗 */
+        .waiting-spinner {
+            width: 46px; height: 46px; border: 4px solid #e0e0e0;
+            border-top-color: #667eea; border-radius: 50%;
+            animation: spin 0.9s linear infinite; margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .waiting-count { color: #999; font-size: 13px; margin-top: 10px; }
+        .waiting-plan { color: #667eea; font-weight: 600; }
 
         .footer { text-align: center; color: #999; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #f0f0f0; }
         .footer a { color: #667eea; text-decoration: none; }
@@ -216,7 +229,6 @@
                 <span class="member-info-text" id="memberInfo">今日剩余搜索: <span class="remaining" id="remainingSearch">3</span> 次</span>
             </div>
             <div class="right">
-                <button class="btn-sm verify" onclick="openVerifyModal()">验证会员</button>
                 <button class="btn-sm upgrade" onclick="scrollToPricing()">升级会员</button>
             </div>
         </div>
@@ -266,13 +278,15 @@
 
         <!-- 定价区 -->
         <div class="pricing-section" id="pricingSection">
-            <div class="pricing-title">选择会员方案</div>
-            <div class="pricing-subtitle">升级会员解锁全部功能，享受更高效的调研体验</div>
+            <div class="pricing-title">💎 会员方案 · 三个版本随心选</div>
+            <div class="pricing-subtitle">下方为各版本权益详情，点击卡片「立即开通」即可在爱发电完成支付并<strong>自动激活</strong>，无需手动填订单号</div>
             <div class="pricing-cards" id="pricingCards"></div>
 
-            <!-- 爱发电嵌入 -->
+            <!-- 爱发电嵌入（赞助支持，可选；会员权益以上方卡片为准） -->
             <div class="afdian-embed">
-                <iframe id="afdianLeaflet" src="" width="640" scrolling="no" height="200" frameborder="0"></iframe>
+                <h3 class="afdian-title">💙 支付由「爱发电」提供 · 也可直接赞助支持作者</h3>
+                <iframe id="afdianLeaflet" src="https://ifdian.net/leaflet?slug=huihui0420" width="100%" scrolling="no" height="240" frameborder="0" style="max-width:640px;"></iframe>
+                <p class="afdian-tip">会员开通以上方三个方案卡片为准；支付由爱发电担保，完成后本页面<strong>自动激活</strong>，无需手动填订单号</p>
             </div>
         </div>
 
@@ -281,29 +295,19 @@
         </div>
     </div>
 
-    <!-- 验证会员弹窗 -->
-    <div class="modal-overlay" id="verifyModal">
-        <div class="modal">
-            <h2>🔑 验证会员</h2>
-            <p>完成爱发电支付后，通过订单号激活会员：</p>
-
-            <div class="step">
-                <div class="step-num">1</div>
-                <div class="step-text">点击上方"升级会员"，选择方案跳转爱发电完成支付</div>
-            </div>
-            <div class="step">
-                <div class="step-num">2</div>
-                <div class="step-text">支付完成后，复制爱发电订单号（在"我的订单"中查看）</div>
-            </div>
-            <div class="step">
-                <div class="step-num">3</div>
-                <div class="step-text">在下方输入订单号，点击"验证激活"即可解锁会员功能</div>
-            </div>
-
-            <input type="text" id="orderNoInput" placeholder="请输入爱发电订单号">
+    <!-- 支付等待弹窗（全自动，无需手动填订单号） -->
+    <div class="modal-overlay" id="payWaitModal">
+        <div class="modal" style="text-align:center;">
+            <h2>⏳ 等待支付确认</h2>
+            <div class="waiting-spinner"></div>
+            <p>已为你打开爱发电支付页面，请在<strong>新标签页</strong>完成支付。</p>
+            <p>支付成功后，本页面会<strong>自动检测并激活会员</strong>，无需任何手动操作。</p>
+            <p class="waiting-plan" id="payWaitPlan"></p>
+            <p class="waiting-count" id="payWaitCount">正在检测支付状态... (0s)</p>
             <div class="modal-buttons">
-                <button class="btn-cancel" onclick="closeVerifyModal()">取消</button>
-                <button class="btn-confirm" onclick="submitVerify()">验证激活</button>
+                <button class="btn-test" id="payWaitSimulate" onclick="simulatePayment()" style="display:none;background:#ff9800;color:white;">🧪 模拟支付（测试模式）</button>
+                <button class="btn-cancel" onclick="cancelPayment()">取消</button>
+                <button class="btn-confirm" onclick="forcePoll()">我已完成支付，立即刷新</button>
             </div>
         </div>
     </div>
@@ -316,6 +320,7 @@
         let logsVisible = false;
         let currentMemberInfo = null;
         let plans = [];
+        let testMode = false;
 
         // ========== 初始化 ==========
         async function init() {
@@ -331,6 +336,7 @@
                 const data = await resp.json();
                 if (data.success) {
                     plans = data.plans;
+                    testMode = !!data.test_mode;
                     renderPricingCards();
                 }
             } catch(e) { console.error('加载方案失败:', e); }
@@ -338,9 +344,13 @@
 
         function renderPricingCards() {
             const container = document.getElementById('pricingCards');
+            if (!plans || plans.length === 0) {
+                container.innerHTML = '<p style="color:#999;text-align:center;">暂无可购买的会员方案</p>';
+                return;
+            }
             container.innerHTML = plans.map(plan => {
                 const highlightClass = plan.highlight ? ' highlight' : '';
-                const featuresHtml = plan.features.map(f => '<li>' + f + '</li>').join('');
+                const featuresHtml = (plan.features || []).map(f => '<li>' + f + '</li>').join('');
                 return '<div class="pricing-card' + highlightClass + '">' +
                     '<div class="plan-name">' + plan.name + '</div>' +
                     '<div class="plan-price">¥' + plan.price + '<span class="unit">/' + plan.period + '</span></div>' +
@@ -412,63 +422,118 @@
             });
         }
 
-        // ========== 购买流程 ==========
+        // ========== 全自动购买流程（无需手动填订单号） ==========
+        let pollTimer = null;
+        let pollSeconds = 0;
+
         async function purchasePlan(planId) {
             try {
-                const resp = await fetch('/api/membership/purchase-url?plan_id=' + planId);
-                const data = await resp.json();
-                if (data.success) {
-                    showToast('正在跳转到爱发电支付页面...', 'info');
-                    window.open(data.url, '_blank');
-                    // 提示用户支付完成后验证
-                    setTimeout(() => {
-                        openVerifyModal();
-                    }, 2000);
-                }
-            } catch(e) {
-                showToast('获取购买链接失败', 'error');
-            }
-        }
-
-        // ========== 验证流程 ==========
-        function openVerifyModal() {
-            document.getElementById('verifyModal').classList.add('active');
-        }
-
-        function closeVerifyModal() {
-            document.getElementById('verifyModal').classList.remove('active');
-        }
-
-        async function submitVerify() {
-            const orderNo = document.getElementById('orderNoInput').value.trim();
-            if (!orderNo) {
-                showToast('请输入订单号', 'error');
-                return;
-            }
-
-            try {
-                const resp = await fetch('/api/membership/verify', {
+                showToast('正在创建支付订单...', 'info');
+                const resp = await fetch('/api/membership/create-order', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ order_no: orderNo })
+                    body: JSON.stringify({ plan_id: planId })
                 });
                 const data = await resp.json();
-
                 if (data.success) {
-                    showToast(data.message, 'success');
-                    closeVerifyModal();
-                    document.getElementById('orderNoInput').value = '';
-                    await loadMembershipStatus();
+                    window.open(data.url, '_blank');
+                    openPayWait(data.plan);
                 } else {
-                    showToast(data.message || '验证失败', 'error');
+                    showToast(data.message || '创建订单失败', 'error');
                 }
             } catch(e) {
-                showToast('验证请求失败: ' + e.message, 'error');
+                showToast('创建订单失败: ' + e.message, 'error');
+            }
+        }
+
+        function openPayWait(plan) {
+            pollSeconds = 0;
+            document.getElementById('payWaitPlan').textContent = '当前开通：' + (plan ? plan.name + '（¥' + plan.price + '/' + plan.period + '）' : '');
+            document.getElementById('payWaitCount').textContent = '正在检测支付状态... (0s)';
+            // 测试模式才显示「模拟支付」按钮
+            document.getElementById('payWaitSimulate').style.display = testMode ? 'block' : 'none';
+            document.getElementById('payWaitModal').classList.add('active');
+            startPaymentPoll();
+        }
+
+        function startPaymentPoll() {
+            stopPaymentPoll();
+            pollTimer = setInterval(async () => {
+                pollSeconds += 3;
+                document.getElementById('payWaitCount').textContent = '正在检测支付状态... (' + pollSeconds + 's)';
+                try {
+                    const resp = await fetch('/api/membership/poll');
+                    const data = await resp.json();
+                    if (data.status === 'success') {
+                        stopPaymentPoll();
+                        closePayWait();
+                        showToast(data.message || '会员已激活', 'success');
+                        await loadMembershipStatus();
+                    } else if (data.status === 'error') {
+                        stopPaymentPoll();
+                        closePayWait();
+                        showToast(data.message || '检测失败', 'error');
+                    }
+                    // 'pending' / 'none' -> 继续等待
+                } catch(e) { /* 网络异常继续等待 */ }
+                if (pollSeconds >= 90) {
+                    document.getElementById('payWaitCount').textContent = '暂未检测到支付，请确认支付完成后点击「立即刷新」';
+                }
+            }, 3000);
+        }
+
+        function stopPaymentPoll() {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+
+        function closePayWait() {
+            stopPaymentPoll();
+            document.getElementById('payWaitModal').classList.remove('active');
+        }
+
+        function cancelPayment() {
+            closePayWait();
+        }
+
+        async function forcePoll() {
+            try {
+                const resp = await fetch('/api/membership/poll');
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    closePayWait();
+                    showToast(data.message || '会员已激活', 'success');
+                    await loadMembershipStatus();
+                } else if (data.status === 'error') {
+                    showToast(data.message || '检测失败', 'error');
+                } else {
+                    showToast('尚未检测到支付，请确认支付完成后重试', 'info');
+                }
+            } catch(e) {
+                showToast('检测失败: ' + e.message, 'error');
             }
         }
 
         function scrollToPricing() {
             document.getElementById('pricingSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ========== 测试模式：模拟支付成功 ==========
+        async function simulatePayment() {
+            try {
+                showToast('测试模式：模拟支付成功...', 'info');
+                const resp = await fetch('/api/membership/simulate', { method: 'POST' });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    stopPaymentPoll();
+                    closePayWait();
+                    showToast(data.message || '会员已激活', 'success');
+                    await loadMembershipStatus();
+                } else {
+                    showToast(data.message || '模拟失败', 'error');
+                }
+            } catch(e) {
+                showToast('模拟支付失败: ' + e.message, 'error');
+            }
         }
 
         // ========== Toast ==========
