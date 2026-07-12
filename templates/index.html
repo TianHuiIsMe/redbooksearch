@@ -43,6 +43,25 @@
             font-size: 13px; font-weight: 500; transition: all 0.3s;
         }
         .btn-sm.upgrade { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+
+        /* 购买凭证 */
+        .purchase-receipt {
+            display: flex; align-items: center; gap: 16px;
+            background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+            border: 2px solid #4caf50; border-radius: 14px;
+            padding: 18px 24px; margin-bottom: 25px;
+            box-shadow: 0 6px 20px rgba(76,175,80,0.25);
+            animation: popIn 0.4s ease;
+        }
+        @keyframes popIn { from { opacity:0; transform: translateY(-8px) scale(0.98);} to { opacity:1; transform:none;} }
+        .purchase-receipt .receipt-icon { font-size: 34px; }
+        .purchase-receipt .receipt-title {
+            font-size: 16px; font-weight: 700; color: #1b5e20; margin-bottom: 8px;
+        }
+        .purchase-receipt .receipt-rows { display: flex; flex-direction: column; gap: 4px; }
+        .receipt-row { display: flex; gap: 10px; font-size: 14px; }
+        .receipt-row .r-label { color: #2e7d32; min-width: 78px; font-weight: 500; }
+        .receipt-row .r-value { color: #1b5e20; font-weight: 600; }
         .btn-sm.upgrade:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
         .btn-sm.verify { background: white; color: #667eea; border: 1px solid #667eea; }
         .btn-sm.verify:hover { background: #f0f0ff; }
@@ -233,6 +252,17 @@
             </div>
         </div>
 
+        <!-- 购买凭证（付款成功后展示） -->
+        <div class="purchase-receipt" id="purchaseReceipt" style="display:none;">
+            <div class="receipt-icon">✅</div>
+            <div class="receipt-title">支付成功 · 会员已激活</div>
+            <div class="receipt-rows">
+                <div class="receipt-row"><span class="r-label">已购买商品</span><span class="r-value" id="rcProduct">—</span></div>
+                <div class="receipt-row"><span class="r-label">购买时间</span><span class="r-value" id="rcTime">—</span></div>
+                <div class="receipt-row"><span class="r-label">购买账号</span><span class="r-value" id="rcAccount">—</span></div>
+            </div>
+        </div>
+
         <!-- 功能区 -->
         <div class="features" id="featuresGrid">
             <div class="feature-item"><div class="icon">🤖</div><strong>AI Agent</strong><br>自主决策</div>
@@ -395,6 +425,31 @@
 
             // 解锁功能图标
             updateFeatureLocks(info);
+
+            // 购买凭证（付款成功后展示）
+            const receipt = document.getElementById('purchaseReceipt');
+            if (info.is_member && info.purchase_time) {
+                document.getElementById('rcProduct').textContent = info.plan_name || '会员';
+                document.getElementById('rcTime').textContent = formatPurchaseTime(info.purchase_time);
+                let account = info.purchase_account || '';
+                if (!account) account = testMode ? '测试账号(test_user)' : '爱发电账号';
+                document.getElementById('rcAccount').textContent = account;
+                receipt.style.display = 'flex';
+            } else {
+                receipt.style.display = 'none';
+            }
+        }
+
+        function formatPurchaseTime(iso) {
+            try {
+                const d = new Date(iso);
+                if (isNaN(d.getTime())) return iso;
+                const pad = n => String(n).padStart(2, '0');
+                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+                    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+            } catch (e) {
+                return iso;
+            }
         }
 
         function getRemainingToday(info) {
