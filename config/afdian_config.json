@@ -1,11 +1,12 @@
 {
   "afdian": {
-    "user_id": "",
-    "token": "",
+    "user_id": "ac3a77c679e111f1b1665254001e7c00",
+    "token": "UyemVCrAwX9aTpxdSsRNFHWv7JDPfuKb",
     "slug": "huihui0420",
     "profile_url": "https://ifdian.net/a/huihui0420",
     "api_base": "https://ifdian.net/api/open",
-    "webhook_url": ""
+    "webhook_url": "",
+    "callback_note": "本地运行无需回调地址；部署到公网后，在爱发电开发者后台把 webhook 通知地址填成你的公网域名+/api/webhook/afdian 即可走自动回调（当前版本已用轮询替代，不依赖回调）"
   },
   "plans": [
     {
@@ -13,7 +14,7 @@
       "name": "基础会员",
       "price": 29.00,
       "period": "月",
-      "afdian_plan_id": "",
+      "afdian_plan_id": "2f5c401279e211f1ad265254001e7c00",
       "features": [
         "每月 30 次AI调研",
         "基础内容分析",
@@ -27,7 +28,7 @@
       "name": "专业会员",
       "price": 99.00,
       "period": "月",
-      "afdian_plan_id": "",
+      "afdian_plan_id": "4c5f726079e211f1afb052540025c377",
       "features": [
         "每月 100 次AI调研",
         "深度内容分析 (双模型校验)",
@@ -43,7 +44,7 @@
       "name": "企业会员",
       "price": 199.00,
       "period": "月",
-      "afdian_plan_id": "",
+      "afdian_plan_id": "5988f5f679e211f199b852540025c377",
       "features": [
         "无限次AI调研",
         "全功能深度分析",
@@ -56,6 +57,7 @@
       "highlight": false
     }
   ],
+  "test_mode": true,
   "free_limits": {
     "daily_search_limit": 3,
     "max_keywords": 1,
