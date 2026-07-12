@@ -265,7 +265,10 @@ class MembershipManager:
             "afdian_profile": self.afdian.profile_url,
             "order_no": member.get("order_no", ""),
             "verified_at": member.get("verified_at", ""),
-            "auto_activated": member.get("auto_activated", False)
+            "auto_activated": member.get("auto_activated", False),
+            # 购买凭证展示字段
+            "purchase_time": member.get("verified_at", ""),
+            "purchase_account": member.get("afdian_user_id", "")
         }
 
     # ============ 自动下单（核心） ============
