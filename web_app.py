@@ -175,6 +175,10 @@ def index():
     session_id = get_session_id()
     resp = make_response(render_template("index.html"))
     set_session_cookie(resp, session_id)
+    # 禁止缓存，确保会员系统更新后用户能看到最新前端
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
     return resp
 
 
